@@ -1,0 +1,477 @@
+{
+  "name": "Flusso 13",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "dashboard",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1088,
+        96
+      ],
+      "id": "e2a62e7d-65e9-42d2-ba1d-d0bcfee7849b",
+      "name": "Webhook",
+      "webhookId": "47f94dd7-8c3e-4b66-aa25-98f0a356bd72"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appOWq5J1swtTRKxe",
+          "mode": "list",
+          "cachedResultName": "Chatbot QA",
+          "cachedResultUrl": "https://airtable.com/appOWq5J1swtTRKxe"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblEn3BeCYEaOOOEU",
+          "mode": "list",
+          "cachedResultName": "Risposte Chatbot",
+          "cachedResultUrl": "https://airtable.com/appOWq5J1swtTRKxe/tblEn3BeCYEaOOOEU"
+        },
+        "filterByFormula": "NOT({id} = \"\")",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -864,
+        96
+      ],
+      "id": "f2aafef4-b8f0-40f0-8068-4ae4b338fa3a",
+      "name": "Search records",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "2QKNouJknktmrI6L",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prendo tutti i record restituiti da Airtable\nconst records = $input.all().map(i => i.json);\n\n// Controllo se ci sono dati\nif(records.length === 0) {\n  return [{ json: { lista: [], temi: [], temaPiuRilevante: \"\" } }];\n}\n\n// Creo un array solo con Domanda, Risposta e Data\nconst lista = records.map(r => ({\n  domanda: r.Domanda || \"\",\n  risposta: r.Risposta || \"\",\n  data: r.Data || \"\"   // <-- aggiunto campo Data\n}));\n\n// Calcolo i temi principali (prima parola della domanda)\nconst temiCount = {};\nlista.forEach(r => {\n  const tema = r.domanda.split(' ')[0]; \n  temiCount[tema] = (temiCount[tema] || 0) + 1;\n});\n\n// Converto temiCount in array\nconst temi = Object.keys(temiCount).map(key => ({\n  tema: key,\n  frequenza: temiCount[key]\n}));\n\n// Trovo il tema più rilevante\nlet temaPiuRilevante = \"\";\nif(temi.length > 0){\n  temaPiuRilevante = temi.reduce((a, b) => a.frequenza > b.frequenza ? a : b).tema;\n}\n\nreturn [{ json: { lista, temi, temaPiuRilevante } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        96
+      ],
+      "id": "12fce7eb-b399-45d4-b340-b84dcced6928",
+      "name": "Estrai solo Domanda e Risposta"
+    },
+    {
+      "parameters": {
+        "html": "<html>\n<head>\n  <title>Dashboard Risposte</title>\n  <script src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script>\n  <style>\n    body { font-family: Arial, sans-serif; padding: 20px; background: #f8f8f8; }\n    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }\n    th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }\n    h1, h2, h3 { margin-top: 20px; }\n    .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }\n  </style>\n</head>\n<body>\n\n<h1>Dashboard Risposte</h1>\n\n<div class=\"card\">\n  <h2>Tema più rilevante: <span style=\"color:#0077cc;\">{{ $json.temaPiuRilevante }}</span></h2>\n</div>\n\n<div class=\"card\">\n  <h3>Risposte raccolte</h3>\n  <table>\n    <tr><th>Domanda</th><th>Risposta</th><th>Data</th></tr>\n    {{ $json.lista.map(r => `\n      <tr>\n        <td>${r.domanda}</td>\n        <td>${r.risposta}</td>\n        <td>${r.data}</td>\n      </tr>`).join('') }}\n  </table>\n</div>\n\n<div class=\"card\">\n  <h3>Grafico: Numero di domande per tema</h3>\n  <canvas id=\"graficoTemi\" width=\"600\" height=\"300\"></canvas>\n</div>\n\n<div class=\"card\">\n  <h3>Grafico: Risposte per giorno della settimana</h3>\n  <canvas id=\"graficoGiorni\" width=\"600\" height=\"300\"></canvas>\n</div>\n\n<script>\n  // --- Grafico temi ---\n  const ctxTemi = document.getElementById('graficoTemi').getContext('2d');\n  const temi = {{ JSON.stringify($json.temi || []) }};\n  const labelsTemi = temi.map(t => t.tema);\n  const valuesTemi = temi.map(t => t.frequenza);\n\n  new Chart(ctxTemi, {\n    type: 'bar',\n    data: {\n      labels: labelsTemi,\n      datasets: [{\n        label: 'Numero di domande per tema',\n        data: valuesTemi,\n        backgroundColor: 'rgba(54, 162, 235, 0.6)'\n      }]\n    },\n    options: {\n      responsive: true,\n      plugins: {\n        legend: { display: false },\n        title: { display: true, text: 'Distribuzione dei temi' }\n      }\n    }\n  });\n\n  // --- Grafico risposte per giorno ---\n  const ctxGiorni = document.getElementById('graficoGiorni').getContext('2d');\n  const risposteGiorno = {{ JSON.stringify($json.rispostePerGiorno || {}) }};\n  const labelsGiorni = Object.keys(risposteGiorno);\n  const valuesGiorni = Object.values(risposteGiorno);\n\n  new Chart(ctxGiorni, {\n    type: 'line',\n    data: {\n      labels: labelsGiorni,\n      datasets: [{\n        label: 'Risposte per giorno',\n        data: valuesGiorni,\n        fill: false,\n        borderColor: 'rgba(255, 99, 132, 0.8)',\n        tension: 0.3\n      }]\n    },\n    options: {\n      responsive: true,\n      plugins: {\n        legend: { display: true },\n        title: { display: true, text: 'Distribuzione risposte per giorno della settimana' }\n      }\n    }\n  });\n</script>\n\n</body>\n</html>\n"
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "fb11bbf4-b6d3-4b84-ba5d-30bf3f18fe2b",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{$node[\"HTML\"].json[\"html\"]}}\n",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": " text/html"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        224,
+        0
+      ],
+      "id": "fa440168-7a6f-446c-9bea-f78aa26139c4",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "folderId": "1Jj86mioOLkm_kqor249ioti6OXrLvuuN",
+        "title": "=Report Criticità Risposte - {{ $now.format(\"YYYY-MM-DD\") }}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        224,
+        192
+      ],
+      "id": "581f58fd-001c-4416-88ff-5bedb7675f26",
+      "name": "Create a document",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "770RF99Lz2sbGnDJ",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ $json.documentId }}",
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "insert",
+              "text": "=Aggiornamento del report del {{ $now.format(\"YYYY-MM-DD\") }}\n\n{{ $json.reportTesto }}\n\nAI Report:\n{{ $json.aiReport }}\n"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        864,
+        432
+      ],
+      "id": "6424781d-a6fb-4392-8946-e81f98b6a202",
+      "name": "Update a document",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "770RF99Lz2sbGnDJ",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prendiamo l'input da Merge\nconst inputItems = $input.all();\n\n// Troviamo l'item che contiene l'ID del documento e l'output AI\nconst docItem = inputItems.find(i => i.json.id || i.json.documentId) || {};\nconst documentId = docItem.json?.id || docItem.json?.documentId || \"\";\nconst documentName = docItem.json?.name || \"Report\";\n\n// Prendiamo l'output reale dell'AI\nconst aiReport = docItem.json?.output || \"Non ci sono risposte da analizzare.\";\n\n// Restituiamo tutto pronto per Update Google Docs\nreturn [{\n    json: {\n        documentId,\n        reportTesto: aiReport,\n        lista: [],        // lasciamo vuoto perché non ci sono domande separate\n        aiReport\n    }\n}];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        432
+      ],
+      "id": "662a12db-cdd7-4f1d-8f7d-7e300462269f",
+      "name": "Prepara report"
+    },
+    {
+      "parameters": {
+        "sendTo": "ileniaunidawork@gmail.com",
+        "subject": "Aggiornamento",
+        "emailType": "text",
+        "message": "Ciao,   il report aggiornato è disponibile qui:  https://docs.google.com/document/d/1STuTvY1IYZnLTzxRn9W2ImaD2hP5zCvAeoytwn_sIsk/edit  Puoi aprirlo direttamente in Google Docs.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1344,
+        432
+      ],
+      "id": "478ba4ab-566f-4ed5-ba20-c84ce8d9e38b",
+      "name": "Send a message",
+      "webhookId": "557492e9-ea4f-4e7f-9680-c9c3250e46d2",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CGksUiurAdsIZwDF",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "1Is2o0ImIF061u24v9DhktNxVsIbOuf2CwAkuUP2LjYk",
+          "mode": "list",
+          "cachedResultName": "Report Criticità Risposte - YYYY-11-Nov 15, 2025",
+          "cachedResultUrl": "https://docs.google.com/document/d/1Is2o0ImIF061u24v9DhktNxVsIbOuf2CwAkuUP2LjYk/edit?usp=drivesdk"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        432
+      ],
+      "id": "283f09ec-f098-4336-98f6-e059f497eb3b",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "qPMxPbXEkiB184Lw",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Sei un assistente che analizza risposte degli utenti.  \nRiceverai un JSON con la lista di domande e risposte.  \n\n🔹 Obiettivo: identificare eventuali criticità o problemi, senza dilungarti.  \n🔹 Se non ci sono criticità, indicarlo chiaramente.  \n🔹 Output chiaro e sintetico, pronto per essere copiato in un documento Google Docs.\n\nFormato di output consigliato:\n\nCriticità principali:\n- [elenco breve di problemi, se presenti]\n\nSe non ci sono criticità, scrivi:\n\"Nessuna criticità rilevata.\"\n\nTesto da analizzare:\n{{ $json.listaJson }}\n",
+        "options": {
+          "systemMessage": "Sei un analista. Leggi il testo fornito e identifica eventuali criticità, errori, problemi e raccomandazioni operative. Rispondi con un report strutturato.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -144,
+        240
+      ],
+      "id": "2daa28d3-72fc-4f88-a1d3-2ddd6bd2a2e2",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        496
+      ],
+      "id": "1611b64a-6288-4235-9086-c76d9d9797da",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "6xAGhA9zHQNia7ZG",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prendo l'array lista dal nodo precedente\nconst lista = $json.lista || [];\n\nreturn [\n  {\n    json: {\n      listaJson: JSON.stringify(lista, null, 2), // per AI Agent\n      lista: lista                                // per i nodi downstream come Prepara report\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        208
+      ],
+      "id": "0fe581db-8f37-44be-bea0-636e6b2b7b75",
+      "name": "Array -> string"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        400,
+        464
+      ],
+      "id": "fc617105-949e-419a-930f-f0aa340ca080",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "ilenia4.app.n8n.cloud",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0",
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "accept-encoding": "gzip, br",
+            "accept-language": "it-IT,it;q=0.8,en-US;q=0.5,en;q=0.3",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "93.70.164.98",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "IT",
+            "cf-ray": "99e9cb60979fea5c-FCO",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "cookie": "rl_session=RudderEncrypt%3AU2FsdGVkX1%2BPdtbeXqjex4Q2Qj%2FA5%2B9bqmlLzeGBPyANuG8%2Bd7m%2F9tgo01IgFo87j0%2BOkn7Hm8uc1K5fhMc2GrtqXbYhyskawKxDx29uvoXsX3UhT9TJYLpZFHzVOqrBHJiCj5tdgBhwsvOIUKEaNQ%3D%3D; rl_anonymous_id=RudderEncrypt%3AU2FsdGVkX1%2BncmfYVLu7HjEBuMpFBC%2BeMKBa7dTCWhukdRKSbgkNg8suiSQsyIN07xHaRda2Co%2BlVWzZl8gGoA%3D%3D; rl_page_init_referrer=RudderEncrypt%3AU2FsdGVkX1%2FLwk%2FeTpvfFGqKGSwTRxkbZi%2FjN3xQYeFs%2B24xiXT%2BUuZppqF7jvLb0fJFxAGnwjmvt2s8PpgqqcLF8hgj8c%2BI1eoWRyc0zXA%3D; rl_page_init_referring_domain=RudderEncrypt%3AU2FsdGVkX19KRDnqP9QSndPJyTyYuHmj2b%2BKOoGf85AHE1vhv%2FaGMNAcIOZ7drtF; _ga_0SC4FF2FH9=GS2.1.s1762856458$o8$g1$t1762856581$j12$l0$h0; _ga=GA1.1.973656812.1760431525; _fbp=fb.1.1760431525036.873168960671795113; n8n_anonymous_id=5a97755c-eb38-4c60-9117-68508772bcde; rl_user_id=RudderEncrypt%3AU2FsdGVkX18tyiwDye92N3mChpUt1EMum5sGcT9xz%2FUlpkp2yLAYnGN4FkxZUODAB4t29LCnbPkUWM0GUydz%2FQuf4u3CYRBspbkiC%2BpvmW5W3ceMVC5WURcUKGxp6TJc1Hw5BctjmXK0oaTN4DbXFlp8MX3PYQrp7Yhu0jt40JQ%3D; rl_trait=RudderEncrypt%3AU2FsdGVkX1%2BiDJrgmn3X3oXqJj5t6nYXxIzmfmtAjnGNzMdujM1kkQObU3b%2FKl8J%2BIRju1I%2BhEFz03R5D0Okzaxqnzfd%2BLST8KYsoN57K5kOLvgwYPYKzR4aCibpHUx5oCqfmVSjSYMf%2FWeKG%2BiAI6aTHqDAKaWXBFAAoGVcQLhusKe6p%2Bzj5z4sQUke5tCsdxs%2Bm%2F%2BIL%2F2rjAvZQH6EDg%3D%3D; ph_phc_4URIAm1uYfJO7j8kWSe0J8lc8IqnstRLS7Jx8NcakHo_posthog=%7B%22distinct_id%22%3A%22214d4b13f98c3f8a3a4d5090a6630153d146442b4ddc4e8d2b10aab1158f04ef%23f6a4000a-86d6-47fb-ae09-3032824df1e6%22%2C%22%24sesid%22%3A%5B1763157750076%2C%22019a8458-af20-75eb-a873-8a374aaa8e2c%22%2C1763156995869%5D%2C%22%24epp%22%3Atrue%2C%22%24initial_person_info%22%3A%7B%22r%22%3A%22https%3A%2F%2Filenia3.app.n8n.cloud%2Fhome%2Fworkflows%22%2C%22u%22%3A%22https%3A%2F%2Filenia3.app.n8n.cloud%2Fsignout%22%7D%7D",
+            "priority": "u=0, i",
+            "sec-fetch-dest": "document",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-site": "none",
+            "sec-fetch-user": "?1",
+            "upgrade-insecure-requests": "1",
+            "x-forwarded-for": "93.70.164.98, 162.158.116.108",
+            "x-forwarded-host": "ilenia4.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-98-5f74ff6676-9ppxk",
+            "x-is-trusted": "yes",
+            "x-real-ip": "93.70.164.98"
+          },
+          "params": {},
+          "query": {},
+          "body": {},
+          "webhookUrl": "https://ilenia4.app.n8n.cloud/webhook-test/dashboard",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Search records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search records": {
+      "main": [
+        [
+          {
+            "node": "Estrai solo Domanda e Risposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Estrai solo Domanda e Risposta": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Array -> string",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a document": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a document": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara report": {
+      "main": [
+        [
+          {
+            "node": "Update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Create a document",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Array -> string": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Prepara report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ec6636aa-55ab-4c80-9dcc-456a655330f9",
+  "meta": {
+    "instanceId": "3eade08974c65ea0e714de990b1c4d4deb3f525e0d19f574aa90538cacfd42e4"
+  },
+  "id": "3XFAiWi9kBxHE6zJ",
+  "tags": []
+}
