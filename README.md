@@ -34,7 +34,7 @@ Questa sezione utilizza l'intelligenza artificiale per analizzare i dati e gener
 5.  **`Prepara report` (Code):** Normalizza i dati combinati.
 6.  **`Update a document` (Google Docs):** Inserisce l'analisi di testo generata dall'AI all'interno del documento.
 7.  **`Download file` (Google Drive):** Nodo incluso nel flusso.
-8.  **`Send a message` (Gmail):** Invia una notifica via email (`ileniaunidawork@gmail.com`) indicando che il report è stato aggiornato e fornendo l'URL per accedervi.
+8.  **`Send a message` (Gmail):** Invia una notifica via email  indicando che il report è stato aggiornato e fornendo l'URL per accedervi.
 
 ---
 
