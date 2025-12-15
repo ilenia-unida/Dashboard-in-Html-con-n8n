@@ -1,4 +1,4 @@
-# 📊 Dashboard e AI Reportistica per Chatbot QA (Flusso 13 - n8n)
+# 📊 Dashboard e AI Reportistica per Chatbot QA 
 
 **Video di Spiegazione Dettagliata:** [https://youtu.be/gNxayFaFNeM](https://youtu.be/gNxayFaFNeM)
 
